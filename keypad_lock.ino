@@ -5,7 +5,7 @@
 #define max_input 8
 #define PASSWORD_COUNT 8
 
-const int magnetPin = 1;
+const int magnetPin = 13;
 const int latchPin = 10;
 //Pin connected to clock pin (SH_CP) of 74HC595
 const int clockPin = 12;
@@ -91,6 +91,7 @@ void loop(){
 }
 
 void resetPasswords() {
+  Serial.println("Resetting passwords");
   inPasswordEdit = true;
   unlocked = false;
   currentMasterPass = 0;
@@ -99,11 +100,14 @@ void resetPasswords() {
 }
 
 void savePassword() {
-  masters[currentMasterPass] = data;
+  masters[currentMasterPass] = strdup(data);
   currentMasterPass++;
   if (currentMasterPass >= PASSWORD_COUNT) {
     currentMasterPass = 0;
     inPasswordEdit = false;
+    for (int i=0; i<PASSWORD_COUNT; i++) {
+      Serial.println("Password " + String(i+1) + ": " + masters[i]);
+    }
     digitalWrite(magnetPin, HIGH);
     locksCleared = 0;
   }
@@ -117,7 +121,7 @@ void stopGame() {
   locksCleared = 0;
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("Game stopeed");
+  lcd.print("Game stopped");
   lcd.setCursor(0,1);
   lcd.print("Hold * to start");
 }
@@ -197,8 +201,8 @@ void checkPassword() {
           clearAndPrintLCD("Lock: " + String(i + 1) + " already cleared");
           Serial.println("Lock: " + String(i + 1) + " already cleared");
         } else {
-          clearAndPrintLCD("Pin: " + String(i + 1) + " Correct");
-          Serial.println("Pin: " + String(i + 1) + " Correct");
+          clearAndPrintLCD("Lock: " + String(i + 1) + " Correct");
+          Serial.println("Lock: " + String(i + 1) + " Correct");
           locksCleared = locksCleared | 1 << i;
           setLockIndicators();
           Serial.println("Locks currently cleared:");
@@ -206,8 +210,9 @@ void checkPassword() {
           
           checkAllLocks();
         }
-        clearData();
-        
+        if (!unlocked) {
+          clearData();
+        }
         return;
       }
     }
@@ -234,8 +239,13 @@ void checkAllLocks() {
 }
 
 void clearData(){
-  clearAndPrintLCD("Clearing entry...");
-  Serial.println("Clearing entry...");
+  if (inPasswordEdit) {
+    clearAndPrintLCD("Saving...");
+    Serial.println("Saving...");
+  } else {
+    clearAndPrintLCD("Clearing entry...");
+    Serial.println("Clearing entry...");
+  }
 
   while(data_count !=0){
     data[data_count--] = 0; 
