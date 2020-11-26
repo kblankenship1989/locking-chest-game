@@ -5,8 +5,8 @@
 #define max_input 8
 #define PASSWORD_COUNT 8
 
-const int magnetPin = 12;
-const int latchPin = 8;
+const int magnetPin = 1;
+const int latchPin = 10;
 //Pin connected to clock pin (SH_CP) of 74HC595
 const int clockPin = 12;
 ////Pin connected to Data in (DS) of 74HC595
@@ -27,7 +27,7 @@ int data_count = 0;
 char customKey;
 int locksCleared = 0;
 int allLocksCleared = B11111111;
-bool inPasswordEdit = false, unlocked = false, blinking = false;
+bool inPasswordEdit = false, unlocked = false, blinking = false, gameStarted=false;
 int currentMasterPass = 0;
 
 const byte ROWS = 4;
@@ -45,7 +45,7 @@ byte colPins[COLS] = {5, 4, 3, 2};
 
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
-LiquidCrystal_I2C lcd(0x21, 16, 2);  
+LiquidCrystal_I2C lcd(0x27, 16, 2);  
 
 void setup(){
   lcd.init(); 
@@ -57,6 +57,7 @@ void setup(){
   pinMode(clockPin, OUTPUT);
   Serial.begin(9600);
   Serial.println("Hold * to start");
+  lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Hold * to start");
 }
@@ -64,18 +65,16 @@ void setup(){
 void loop(){
   if (unlocked) {
     allLocksClearedIndicator();
-    customKey = customKeypad.getKey();
-  } else {
-    customKey = customKeypad.waitForKey();
   }
+  customKey = customKeypad.getKey();
   if (customKey == '*') {
-    if (customKeypad.getState() == HOLD) {
+    if (!gameStarted) {
       resetPasswords();
     } else {
       clearData();
     }
   } else if (customKey == '#') {
-    if (customKeypad.getState() == HOLD) {
+    if (unlocked) {
       stopGame();
     } else {
       if (inPasswordEdit) {
@@ -101,9 +100,8 @@ void resetPasswords() {
 
 void savePassword() {
   masters[currentMasterPass] = data;
-  if (currentMasterPass < PASSWORD_COUNT) {
-    currentMasterPass++;
-  } else {
+  currentMasterPass++;
+  if (currentMasterPass >= PASSWORD_COUNT) {
     currentMasterPass = 0;
     inPasswordEdit = false;
     digitalWrite(magnetPin, HIGH);
@@ -138,7 +136,7 @@ void setLCDEntry() {
 void resetLCDForEntry() {
   lcd.setCursor(0,0);
   if (inPasswordEdit) {
-    lcd.print("Enter Master " + String(currentMasterPass) + ":");
+    lcd.print("Enter Master " + String(currentMasterPass + 1) + ":");
   } else {
     lcd.print("Enter Password:");
   }
@@ -196,11 +194,11 @@ void checkPassword() {
     for (int i = 0; i < PASSWORD_COUNT; i++) {
       if(!strcmp(data, masters[i])){
         if (locksCleared >> i & 1 == 1) {
-          clearAndPrintLCD("Lock: " + String(i) + " already cleared");
-          Serial.println("Lock: " + String(i) + " already cleared");
+          clearAndPrintLCD("Lock: " + String(i + 1) + " already cleared");
+          Serial.println("Lock: " + String(i + 1) + " already cleared");
         } else {
-          clearAndPrintLCD("Pin: " + String(i) + " Correct");
-          Serial.println("Pin: " + String(i) + " Correct");
+          clearAndPrintLCD("Pin: " + String(i + 1) + " Correct");
+          Serial.println("Pin: " + String(i + 1) + " Correct");
           locksCleared = locksCleared | 1 << i;
           setLockIndicators();
           Serial.println("Locks currently cleared:");
